@@ -218,7 +218,6 @@ public class ClientUI
 
 		sidebar.insertTab(null, icon, navBtn.getPanel().getWrappedPanel(), navBtn.getTooltip(),
 			sidebarEntries.headSet(navBtn).size());
-		sidebar.getModel().clearSelection();
 	}
 
 	void removeNavigation(NavigationButton navBtn)
