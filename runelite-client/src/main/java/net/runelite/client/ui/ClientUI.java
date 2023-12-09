@@ -227,9 +227,12 @@ public class ClientUI
 		{
 			toolbarPanel.remove(navBtn);
 		}
+		else
+		{
+			sidebar.remove(navBtn.getPanel().getWrappedPanel());
+		}
 
 		sidebarEntries.remove(navBtn);
-		sidebar.remove(navBtn.getPanel());
 	}
 
 	@Subscribe
