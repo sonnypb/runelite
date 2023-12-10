@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017, Psikoi <https://github.com/psikoi>
+ * Copyright (c) 2023, Adam <Adam@sigterm.info>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,29 +26,24 @@
 package net.runelite.client.ui.components;
 
 import java.awt.Component;
-import javax.swing.JLabel;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JList;
-import javax.swing.ListCellRenderer;
 import net.runelite.client.util.Text;
 
-public final class ComboBoxListRenderer<T> extends JLabel implements ListCellRenderer<T>
+public final class TitleCaseListCellRenderer extends DefaultListCellRenderer
 {
-
 	@Override
-	public Component getListCellRendererComponent(JList<? extends T> list, T o, int index, boolean isSelected, boolean cellHasFocus)
+	public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)
 	{
 		String text;
-		if (o instanceof Enum<?>)
+		if (value instanceof Enum<?>)
 		{
-			text = Text.titleCase((Enum<?>) o);
+			text = Text.titleCase((Enum<?>) value);
 		}
 		else
 		{
-			text = o.toString();
+			text = value.toString();
 		}
-
-		setText(text);
-
-		return this;
+		return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus);
 	}
 }
