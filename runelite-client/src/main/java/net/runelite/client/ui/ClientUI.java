@@ -216,8 +216,11 @@ public class ClientUI
 		final int TAB_SIZE = 16;
 		Icon icon = new ImageIcon(ImageUtil.resizeImage(navBtn.getIcon(), TAB_SIZE, TAB_SIZE));
 
+		// insertTab changes the selected index when the first tab is inserted, avoid this
+		int old = sidebar.getSelectedIndex();
 		sidebar.insertTab(null, icon, navBtn.getPanel().getWrappedPanel(), navBtn.getTooltip(),
 			sidebarEntries.headSet(navBtn).size());
+		sidebar.setSelectedIndex(old);
 	}
 
 	void removeNavigation(NavigationButton navBtn)
