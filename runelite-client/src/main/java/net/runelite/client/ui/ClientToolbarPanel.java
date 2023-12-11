@@ -33,6 +33,7 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.SwingUtil;
 
 /**
  * non-tab toolbar items, in the title bar or bottom of the sidebar
@@ -61,6 +62,7 @@ class ClientToolbarPanel extends JPanel
 	{
 		Icon icon = new ImageIcon(resize ? ImageUtil.resizeImage(nb.getIcon(), 16, 16) : nb.getIcon());
 		JButton jb = new JButton(icon);
+		SwingUtil.removeButtonDecorations(jb);
 		jb.setToolTipText(nb.getTooltip());
 		jb.setFocusable(false);
 		jb.setPreferredSize(new Dimension(24, 24));
