@@ -55,6 +55,6 @@ public class ClientToolbar
 	public void openPanel(NavigationButton button)
 	{
 		assert SwingUtilities.isEventDispatchThread() : "must be on EDT";
-		clientUI.openPanel(button);
+		clientUI.openPanel(button, true);
 	}
 }

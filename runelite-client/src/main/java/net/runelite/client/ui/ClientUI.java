@@ -57,6 +57,8 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.TreeSet;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
@@ -82,6 +84,7 @@ import javax.swing.ToolTipManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.HyperlinkEvent;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.Constants;
@@ -143,8 +146,8 @@ public class ClientUI
 
 	private JTabbedPane sidebar;
 	private final TreeSet<NavigationButton> sidebarEntries = new TreeSet<>(NavigationButton.COMPARATOR);
+	private final Deque<HistoryEntry> selectedTabHistory = new ArrayDeque<>();
 	private NavigationButton selectedTab;
-	private NavigationButton lastSelectedTab;
 
 	private ClientToolbarPanel toolbarPanel;
 	private boolean withTitleBar;
@@ -162,6 +165,13 @@ public class ClientUI
 	@Inject(optional = true)
 	@Named("recommendedMemoryLimit")
 	private int recommendedMemoryLimit = 512;
+
+	@RequiredArgsConstructor
+	private static class HistoryEntry
+	{
+		private final boolean sidebarOpen;
+		private final NavigationButton navBtn;
+	}
 
 	@Inject
 	private ClientUI(
@@ -216,11 +226,13 @@ public class ClientUI
 		final int TAB_SIZE = 16;
 		Icon icon = new ImageIcon(ImageUtil.resizeImage(navBtn.getIcon(), TAB_SIZE, TAB_SIZE));
 
-		// insertTab changes the selected index when the first tab is inserted, avoid this
-		int old = sidebar.getSelectedIndex();
 		sidebar.insertTab(null, icon, navBtn.getPanel().getWrappedPanel(), navBtn.getTooltip(),
 			sidebarEntries.headSet(navBtn).size());
-		sidebar.setSelectedIndex(old);
+		// insertTab changes the selected index when the first tab is inserted, avoid this
+		if (sidebar.getTabCount() == 1)
+		{
+			sidebar.setSelectedIndex(-1);
+		}
 	}
 
 	void removeNavigation(NavigationButton navBtn)
@@ -231,7 +243,17 @@ public class ClientUI
 		}
 		else
 		{
+			boolean closingOpenTab = !selectedTabHistory.isEmpty() && selectedTabHistory.getLast().navBtn == navBtn;
+			selectedTabHistory.removeIf(it -> it.navBtn == navBtn);
 			sidebar.remove(navBtn.getPanel().getWrappedPanel());
+			if (closingOpenTab)
+			{
+				HistoryEntry entry = selectedTabHistory.isEmpty()
+					? new HistoryEntry(true, null)
+					: selectedTabHistory.removeLast();
+
+				openPanel(entry.navBtn, entry.sidebarOpen);
+			}
 		}
 
 		sidebarEntries.remove(navBtn);
@@ -358,7 +380,7 @@ public class ClientUI
 				else
 				{
 					// maybe just include a map component -> navbtn?
-					lastSelectedTab = newSelectedTab = Iterables.get(sidebarEntries, index);
+					newSelectedTab = Iterables.get(sidebarEntries, index);
 				}
 
 				if (oldSelectedTab == newSelectedTab)
@@ -370,6 +392,8 @@ public class ClientUI
 
 				if (sidebar.isVisible())
 				{
+					pushHistory();
+
 					if (oldSelectedTab != null)
 					{
 						SwingUtil.deactivate(oldSelectedTab.getPanel());
@@ -474,10 +498,10 @@ public class ClientUI
 			// Update config
 			updateFrameConfig(false);
 
-			// Open sidebar if the config closed state is unset
+			// Close sidebar if the config closed state is set
 			if (configManager.getConfiguration(CONFIG_GROUP, CONFIG_CLIENT_SIDEBAR_CLOSED, Boolean.class) == Boolean.TRUE)
 			{
-				toggleSidebar(false);
+				toggleSidebar(false, true);
 			}
 		});
 	}
@@ -860,25 +884,27 @@ public class ClientUI
 		return frame.getGraphicsConfiguration();
 	}
 
-	void openPanel(NavigationButton navBtn)
+	void openPanel(NavigationButton navBtn, boolean showSidebar)
 	{
 		if (navBtn != null && !sidebarEntries.contains(navBtn))
 		{
 			return;
 		}
 
-		toggleSidebar(true);
-
 		int index = navBtn == null ? -1 : sidebarEntries.headSet(navBtn).size();
 		sidebar.setSelectedIndex(index);
+
+		toggleSidebar(showSidebar, false);
+
+		pushHistory();
 	}
 
 	private void toggleSidebar()
 	{
-		toggleSidebar(!sidebar.isVisible());
+		toggleSidebar(!sidebar.isVisible(), true);
 	}
 
-	private void toggleSidebar(boolean open)
+	private void toggleSidebar(boolean open, boolean pushHistory)
 	{
 		if (sidebar.isVisible() == open)
 		{
@@ -896,6 +922,11 @@ public class ClientUI
 
 		sidebar.setVisible(open);
 		content.revalidate();
+
+		if (pushHistory)
+		{
+			pushHistory();
+		}
 
 		if (selectedTab != null)
 		{
@@ -918,13 +949,48 @@ public class ClientUI
 
 	private void togglePluginPanel()
 	{
-		if (sidebar.getSelectedIndex() < 0)
+		if (!sidebar.isVisible() || sidebar.getSelectedIndex() < 0)
 		{
-			openPanel(lastSelectedTab);
+			toggleSidebar(true, false);
+
+			NavigationButton open = null;
+			while (!selectedTabHistory.isEmpty())
+			{
+				HistoryEntry historyEntry = selectedTabHistory.removeLast();
+				if (historyEntry.navBtn != null)
+				{
+					open = historyEntry.navBtn;
+					break;
+				}
+			}
+
+			if (open == null)
+			{
+				open = sidebarEntries.first();
+			}
+
+			openPanel(open, true);
 		}
 		else
 		{
 			sidebar.setSelectedIndex(-1);
+		}
+	}
+
+	private void pushHistory()
+	{
+		selectedTabHistory.addLast(new HistoryEntry(sidebar.isVisible(), selectedTab));
+
+		// we keep multiple history entries so you can open a panel, close it, open another, *remove* it, then resume the first open panel
+		if (selectedTabHistory.size() > 4)
+		{
+			HistoryEntry ent = selectedTabHistory.removeFirst();
+			// Try to always keep a panel in the history
+			if (ent.navBtn != null && selectedTabHistory.stream().noneMatch(it -> it.navBtn != null))
+			{
+				selectedTabHistory.removeFirst();
+				selectedTabHistory.addFirst(ent);
+			}
 		}
 	}
 
