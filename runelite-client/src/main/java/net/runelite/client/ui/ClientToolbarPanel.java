@@ -31,7 +31,9 @@ import java.util.TreeMap;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.SwingUtil;
 
@@ -77,7 +79,17 @@ class ClientToolbarPanel extends JPanel
 			}
 		});
 
-		//TODO: context menu
+		if (nb.getPopup() != null)
+		{
+			var menu = new JPopupMenu();
+			nb.getPopup().forEach((name, cb) ->
+			{
+				var menuItem = new JMenuItem(name);
+				menuItem.addActionListener(e -> cb.run());
+				menu.add(menuItem);
+			});
+			jb.setComponentPopupMenu(menu);
+		}
 
 		if (entries.putIfAbsent(nb, jb) != null)
 		{

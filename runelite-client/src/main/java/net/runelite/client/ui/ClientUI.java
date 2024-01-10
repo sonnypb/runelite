@@ -74,6 +74,7 @@ import javax.swing.JButton;
 import javax.swing.JEditorPane;
 import javax.swing.JFrame;
 import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import static javax.swing.JOptionPane.INFORMATION_MESSAGE;
 import javax.swing.JPanel;
@@ -403,6 +404,36 @@ public class ClientUI
 					if (newSelectedTab != null)
 					{
 						SwingUtil.activate(newSelectedTab.getPanel());
+					}
+				}
+			});
+			sidebar.addMouseListener(new java.awt.event.MouseAdapter()
+			{
+				@Override
+				public void mouseClicked(MouseEvent e)
+				{
+					if (e.getButton() == MouseEvent.BUTTON3)
+					{
+						int index = 0;
+						for (var navBtn : sidebarEntries)
+						{
+							Rectangle bounds = sidebar.getBoundsAt(index++);
+							if (bounds != null && bounds.contains(e.getX(), e.getY()))
+							{
+								if (navBtn.getPopup() != null)
+								{
+									var menu = new JPopupMenu();
+									navBtn.getPopup().forEach((name, cb) ->
+									{
+										var menuItem = new JMenuItem(name);
+										menuItem.addActionListener(ev -> cb.run());
+										menu.add(menuItem);
+									});
+									menu.show(sidebar, e.getX(), e.getY());
+								}
+								return;
+							}
+						}
 					}
 				}
 			});
