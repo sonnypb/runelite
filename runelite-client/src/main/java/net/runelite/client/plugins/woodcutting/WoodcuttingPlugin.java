@@ -46,6 +46,7 @@ import static net.runelite.api.AnimationID.WOODCUTTING_2H_ADAMANT;
 import static net.runelite.api.AnimationID.WOODCUTTING_2H_BLACK;
 import static net.runelite.api.AnimationID.WOODCUTTING_2H_BRONZE;
 import static net.runelite.api.AnimationID.WOODCUTTING_2H_CRYSTAL;
+import static net.runelite.api.AnimationID.WOODCUTTING_2H_CRYSTAL_INACTIVE;
 import static net.runelite.api.AnimationID.WOODCUTTING_2H_DRAGON;
 import static net.runelite.api.AnimationID.WOODCUTTING_2H_IRON;
 import static net.runelite.api.AnimationID.WOODCUTTING_2H_MITHRIL;
@@ -72,9 +73,10 @@ import net.runelite.api.GameObject;
 import net.runelite.api.NPC;
 import net.runelite.api.NpcID;
 import net.runelite.api.NullObjectID;
-import net.runelite.api.ObjectComposition;
 import net.runelite.api.ObjectID;
 import net.runelite.api.ScriptID;
+import net.runelite.api.Tile;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.AnimationChanged;
 import net.runelite.api.events.ChatMessage;
@@ -110,7 +112,7 @@ public class WoodcuttingPlugin extends Plugin
 		WOODCUTTING_INFERNAL, WOODCUTTING_3A_AXE, WOODCUTTING_CRYSTAL, WOODCUTTING_TRAILBLAZER,
 		WOODCUTTING_2H_BRONZE, WOODCUTTING_2H_IRON, WOODCUTTING_2H_STEEL, WOODCUTTING_2H_BLACK,
 		WOODCUTTING_2H_MITHRIL, WOODCUTTING_2H_ADAMANT, WOODCUTTING_2H_RUNE, WOODCUTTING_2H_DRAGON,
-		WOODCUTTING_2H_CRYSTAL, WOODCUTTING_2H_3A
+		WOODCUTTING_2H_CRYSTAL, WOODCUTTING_2H_CRYSTAL_INACTIVE, WOODCUTTING_2H_3A
 	);
 
 	private static final Pattern WOOD_CUT_PATTERN = Pattern.compile("You get (?:some|an)[\\w ]+(?:logs?|mushrooms)\\.");
@@ -544,13 +546,45 @@ public class WoodcuttingPlugin extends Plugin
 				case NullObjectID.NULL_34639:
 				{
 					WorldPoint worldPoint = new WorldPoint((locCoord >>> 14) & 0x3FFF, locCoord & 0x3FFF, (locCoord >>> 28) & 0x3);
-					ObjectComposition obj = client.getObjectDefinition(locId);
+					GameObject gameObject = findObject(worldPoint);
+					if (gameObject == null)
+					{
+						return;
+					}
 
-					TreeRespawn treeRespawn = new TreeRespawn(worldPoint, obj.getSizeX() - 1, obj.getSizeY() - 1, Instant.now(), ticks * Constants.GAME_TICK_LENGTH);
+					TreeRespawn treeRespawn = new TreeRespawn(worldPoint, gameObject.sizeX() - 1, gameObject.sizeY() - 1, Instant.now(), ticks * Constants.GAME_TICK_LENGTH);
 					respawns.add(treeRespawn);
 				}
 			}
 		}
+	}
+
+	private GameObject findObject(WorldPoint point)
+	{
+		LocalPoint localPoint = LocalPoint.fromWorld(client, point);
+		if (localPoint == null)
+		{
+			return null;
+		}
+
+		Tile tile = client.getScene()
+			.getTiles()[point.getPlane()][localPoint.getSceneX()][localPoint.getSceneY()];
+		if (tile == null)
+		{
+			return null;
+		}
+
+		for (GameObject gameObject : tile.getGameObjects())
+		{
+			// the id passed to the script is the stump, not the tree, but it is prior to the tree
+			// despawning, so we can't match by id. Probably this is good enough.
+			if (gameObject != null)
+			{
+				return gameObject;
+			}
+		}
+
+		return null;
 	}
 
 	@Subscribe
